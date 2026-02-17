@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
@@ -21,6 +21,27 @@ class PipelineRun(Base):
     records_processed = Column(Integer, default=0)
     error_message = Column(Text, nullable=True)
     logs = Column(Text, nullable=True)
+
+class PipelineSchedule(Base):
+    __tablename__ = "pipeline_schedules"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    pipeline_name = Column(String, nullable=False)
+    cron_expression = Column(String, nullable=False)  # e.g., "0 * * * *" for hourly
+    enabled = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_run_at = Column(DateTime, nullable=True)
+    next_run_at = Column(DateTime, nullable=True)
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    pipeline_run_id = Column(Integer, nullable=False)
+    message = Column(String, nullable=False)
+    type = Column(String, nullable=False)  # success, error, warning
+    created_at = Column(DateTime, default=datetime.utcnow)
+    read = Column(Boolean, default=False)
 
 Base.metadata.create_all(bind=engine)
 

@@ -28,3 +28,27 @@ export interface Stats {
     };
   };
 }
+
+export interface Schedule {
+  id: string;
+  pipeline_name: string;
+  cron_expression: string;
+  enabled: boolean;
+  last_run: string | null;
+  next_run: string | null;
+  created_at: string;
+}
+
+export interface Toast {
+  id: string;
+  type: 'success' | 'error' | 'info' | 'warning';
+  message: string;
+  duration?: number;
+}
+
+export interface PipelineConfig {
+  name: string;
+  displayName: string;
+  description: string;
+  icon: string;
+}

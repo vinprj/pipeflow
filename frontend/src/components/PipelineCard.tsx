@@ -4,6 +4,7 @@ interface Props {
   name: string
   displayName: string
   description: string
+  icon: string
   onTrigger: () => void
   lastRun?: {
     status: string
@@ -12,38 +13,78 @@ interface Props {
   }
 }
 
-function PipelineCard({ name, displayName, description, onTrigger, lastRun }: Props) {
-  const statusColors = {
-    success: 'bg-green-100 text-green-800',
-    failed: 'bg-red-100 text-red-800',
-    running: 'bg-blue-100 text-blue-800',
+function PipelineCard({ name, displayName, description, icon, onTrigger, lastRun }: Props) {
+  const statusConfig = {
+    success: {
+      color: 'border-green-500/50 bg-green-500/10',
+      text: 'text-green-400',
+      label: 'SUCCESS'
+    },
+    failed: {
+      color: 'border-red-500/50 bg-red-500/10',
+      text: 'text-red-400',
+      label: 'FAILED'
+    },
+    running: {
+      color: 'border-blue-500/50 bg-blue-500/10 status-running',
+      text: 'text-blue-400',
+      label: 'RUNNING'
+    },
   }
 
+  const config = lastRun ? statusConfig[lastRun.status as keyof typeof statusConfig] : null
+
   return (
-    <div className="bg-white rounded-lg shadow p-4">
-      <div className="flex justify-between items-start mb-2">
-        <h3 className="font-semibold text-gray-900">{displayName}</h3>
-        {lastRun && (
-          <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[lastRun.status as keyof typeof statusColors] || 'bg-gray-100'}`}>
-            {lastRun.status}
+    <div className="glass-card rounded-lg p-5 hover:border-[var(--color-spark)]/50 transition-all group">
+      {/* Icon & Status */}
+      <div className="flex justify-between items-start mb-4">
+        <div className="text-4xl">{icon}</div>
+        {config && (
+          <span className={`px-3 py-1 rounded border text-xs font-bold font-mono ${config.color} ${config.text}`}>
+            {config.label}
           </span>
         )}
       </div>
-      <p className="text-sm text-gray-600 mb-4">{description}</p>
+
+      {/* Title */}
+      <h3 className="font-bold text-xl mb-2 text-white font-mono group-hover:text-[var(--color-spark)] transition-colors">
+        {displayName}
+      </h3>
       
+      {/* Description */}
+      <p className="text-sm text-[var(--color-dim)] mb-4 leading-relaxed">
+        {description}
+      </p>
+
+      {/* Last Run Info */}
       {lastRun && (
-        <div className="text-xs text-gray-500 mb-4">
-          <p>Records: {lastRun.records_processed}</p>
-          <p>{new Date(lastRun.started_at).toLocaleString()}</p>
+        <div className="mb-4 p-3 bg-[var(--color-void)]/50 rounded border border-white/5">
+          <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+            <div>
+              <div className="text-[var(--color-dim)]">RECORDS</div>
+              <div className="text-white font-bold">{lastRun.records_processed}</div>
+            </div>
+            <div>
+              <div className="text-[var(--color-dim)]">LAST RUN</div>
+              <div className="text-white font-bold">
+                {new Date(lastRun.started_at).toLocaleTimeString()}
+              </div>
+            </div>
+          </div>
         </div>
       )}
-      
+
+      {/* Trigger Button */}
       <button
         onClick={onTrigger}
-        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded text-sm font-medium transition-colors"
+        className="w-full bg-[var(--color-spark)] hover:bg-[var(--color-spark)]/80 text-black font-bold py-3 px-4 rounded font-mono transition-all btn-primary transform hover:scale-[1.02] active:scale-[0.98]"
       >
-        Run Pipeline
+        ▶ RUN PIPELINE
       </button>
+
+      {/* Decorative grid corner */}
+      <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-[var(--color-spark)]/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+      <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-[var(--color-spark)]/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
     </div>
   )
 }

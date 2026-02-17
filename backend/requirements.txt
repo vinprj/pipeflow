@@ -4,3 +4,6 @@ pandas==2.2.0
 sqlalchemy==2.0.25
 python-dotenv==1.0.0
 httpx==0.26.0
+apscheduler==3.10.4
+beautifulsoup4==4.12.3
+lxml==5.1.0
