@@ -7,6 +7,9 @@ import Scheduler from './components/Scheduler'
 import LogsViewer from './components/LogsViewer'
 import ToastContainer from './components/ToastContainer'
 import NotificationPanel from './components/NotificationPanel'
+import PipelineHealth from './components/PipelineHealth'
+import PipelineTemplates from './components/PipelineTemplates'
+import PipelineDetails from './components/PipelineDetails'
 import type { PipelineRun, Stats, Toast, PipelineConfig, Notification } from './types'
 
 const PIPELINE_CONFIGS: PipelineConfig[] = [
@@ -53,12 +56,16 @@ function App() {
   const [showScheduler, setShowScheduler] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [showConfig, setShowConfig] = useState(false)
-  const [currentView, setCurrentView] = useState<'pipelines' | 'analytics'>('pipelines')
+  const [showTemplates, setShowTemplates] = useState(false)
+  const [currentView, setCurrentView] = useState<'pipelines' | 'analytics' | 'health'>('pipelines')
+  const [selectedPipeline, setSelectedPipeline] = useState<string | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('connecting')
   const [pipelineConfigs, setPipelineConfigs] = useState<PipelineConfig[]>(PIPELINE_CONFIGS)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'success' | 'failed' | 'running'>('all')
 
   // Load configs from localStorage
   useEffect(() => {
@@ -148,6 +155,21 @@ function App() {
     }
   }
 
+  const handleTriggerAll = async () => {
+    addToast('info', 'Triggering all pipelines...')
+    for (const pipeline of pipelineConfigs) {
+      try {
+        await fetch(`/api/pipelines/${pipeline.name.replace('_', '-')}/trigger`, {
+          method: 'POST'
+        })
+      } catch (error) {
+        console.error(`Error triggering ${pipeline.displayName}:`, error)
+      }
+    }
+    addToast('success', 'All pipelines triggered!')
+    fetchData()
+  }
+
   const handleMarkRead = async (id: number) => {
     try {
       await fetch(`/api/notifications/${id}/read`, { method: 'PATCH' })
@@ -176,6 +198,31 @@ function App() {
     addToast('success', 'Pipeline configuration updated')
   }
 
+  const handleApplyTemplate = (template: PipelineConfig) => {
+    setPipelineConfigs(prev => {
+      const exists = prev.find(p => p.name === template.name)
+      if (exists) {
+        return prev.map(p => p.name === template.name ? template : p)
+      }
+      return [...prev, template]
+    })
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(pipelineConfigs))
+    addToast('success', `Template "${template.displayName}" applied`)
+  }
+
+  // Filter pipelines based on search and status
+  const filteredPipelines = pipelineConfigs.filter(p => {
+    const matchesSearch = p.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         p.description.toLowerCase().includes(searchQuery.toLowerCase())
+    return matchesSearch
+  })
+
+  // Filter runs based on status
+  const filteredRuns = runs.filter(r => {
+    if (filterStatus === 'all') return true
+    return r.status === filterStatus
+  })
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -183,6 +230,11 @@ function App() {
           <div className="text-6xl mb-4 animate-pulse">⚡</div>
           <div className="text-2xl font-mono text-[var(--color-spark)] font-bold glitch-text">
             INITIALIZING PIPEFLOW
+          </div>
+          <div className="mt-4 flex justify-center gap-1">
+            <div className="w-2 h-2 bg-[var(--color-spark)] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+            <div className="w-2 h-2 bg-[var(--color-spark)] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+            <div className="w-2 h-2 bg-[var(--color-spark)] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
           </div>
         </div>
       </div>
@@ -200,7 +252,7 @@ function App() {
       {/* Header */}
       <header className="glass-card border-b-2 border-[var(--color-spark)]/30 sticky top-0 z-40 backdrop-blur-lg">
         <div className="max-w-[1600px] mx-auto px-6 py-4">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center flex-wrap gap-4">
             <div className="flex items-center gap-6">
               <div>
                 <h1 className="text-3xl font-bold font-mono text-[var(--color-spark)] glitch-text mb-0">
@@ -225,6 +277,27 @@ function App() {
             </div>
             
             <div className="flex items-center gap-3">
+              {/* Search */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search pipelines..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-[var(--color-steel)] border border-white/10 rounded-lg px-4 py-2 pl-10 text-white font-mono text-sm focus:border-[var(--color-spark)] focus:outline-none w-48"
+                />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-dim)]">🔍</span>
+              </div>
+              
+              {/* Templates Button */}
+              <button
+                onClick={() => setShowTemplates(true)}
+                className="bg-[var(--color-steel)] hover:bg-[var(--color-concrete)] border border-white/10 text-white font-mono py-2 px-4 rounded transition-all hover:border-[var(--color-spark)]/50"
+                title="Pipeline Templates"
+              >
+                📋
+              </button>
+              
               {/* Config Button */}
               <button
                 onClick={() => setShowConfig(true)}
@@ -255,9 +328,11 @@ function App() {
                 ⏱ SCHEDULER
               </button>
             </div>
-            
-            {/* View Toggle */}
-            <div className="flex items-center gap-2 mt-4">
+          </div>
+
+          {/* View Toggle & Quick Actions */}
+          <div className="flex justify-between items-center mt-4 flex-wrap gap-4">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => setCurrentView('pipelines')}
                 className={`flex-1 py-2 px-4 rounded font-mono text-sm transition-all ${
@@ -278,14 +353,36 @@ function App() {
               >
                 📊 ANALYTICS
               </button>
+              <button
+                onClick={() => setCurrentView('health')}
+                className={`flex-1 py-2 px-4 rounded font-mono text-sm transition-all ${
+                  currentView === 'health'
+                    ? 'bg-[var(--color-spark)] text-black'
+                    : 'bg-[var(--color-steel)] text-[var(--color-dim)] hover:text-white'
+                }`}
+              >
+                💚 HEALTH
+              </button>
             </div>
+
+            {currentView === 'pipelines' && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleTriggerAll}
+                  className="bg-green-600 hover:bg-green-700 text-white font-mono py-2 px-4 rounded text-sm transition-all"
+                  title="Trigger all pipelines"
+                >
+                  ▶ RUN ALL
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
 
       {/* Notifications Dropdown */}
       {showNotifications && (
-        <div className="absolute right-6 top-24 z-50 w-96">
+        <div className="absolute right-6 top-40 z-50 w-96">
           <div className="glass-card rounded-lg border border-[var(--color-spark)]/30 shadow-2xl">
             <NotificationPanel 
               notifications={notifications}
@@ -334,47 +431,86 @@ function App() {
                 AVAILABLE PIPELINES
               </h2>
               <div className="h-1 w-32 bg-gradient-to-r from-[var(--color-spark)] to-transparent"></div>
+              <p className="text-sm text-[var(--color-dim)] mt-2">
+                {filteredPipelines.length} pipeline{filteredPipelines.length !== 1 ? 's' : ''} available
+              </p>
             </div>
 
-            {/* Pipeline Cards */}
+            {/* Pipeline Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-              {pipelineConfigs.map((pipeline) => (
-                <PipelineCard
+              {filteredPipelines.map((pipeline, index) => (
+                <div 
                   key={pipeline.name}
-                  name={pipeline.name}
-                  displayName={pipeline.displayName}
-                  description={pipeline.description}
-                  icon={pipeline.icon}
-                  onTrigger={() => handleTrigger(
-                    pipeline.name.replace('_', '-'),
-                    pipeline.displayName
-                  )}
-                  lastRun={stats?.latest_runs?.[pipeline.name]}
-                />
+                  className="animate-fade-in"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <PipelineCard
+                    name={pipeline.name}
+                    displayName={pipeline.displayName}
+                    description={pipeline.description}
+                    icon={pipeline.icon}
+                    onTrigger={() => handleTrigger(
+                      pipeline.name.replace('_', '-'),
+                      pipeline.displayName
+                    )}
+                    onViewDetails={() => setSelectedPipeline(pipeline.name)}
+                    lastRun={stats?.latest_runs?.[pipeline.name]}
+                  />
+                </div>
               ))}
             </div>
 
-            {/* Section Header */}
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold font-mono text-white mb-2">
+            {/* Filter Controls */}
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold font-mono text-white">
                 RECENT PIPELINE RUNS
               </h2>
-              <div className="h-1 w-32 bg-gradient-to-r from-[var(--color-spark)] to-transparent"></div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-[var(--color-dim)] font-mono">Filter:</span>
+                {(['all', 'success', 'failed', 'running'] as const).map(status => (
+                  <button
+                    key={status}
+                    onClick={() => setFilterStatus(status)}
+                    className={`px-3 py-1 rounded font-mono text-xs transition-all ${
+                      filterStatus === status
+                        ? 'bg-[var(--color-spark)] text-black'
+                        : 'bg-[var(--color-steel)] text-[var(--color-dim)] hover:text-white'
+                    }`}
+                  >
+                    {status.toUpperCase()}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Pipeline Runs List */}
             <div className="glass-card rounded-lg overflow-hidden border border-white/10">
-              <PipelineList runs={runs} onSelect={setSelectedRun} />
+              <PipelineList runs={filteredRuns} onSelect={setSelectedRun} />
             </div>
           </>
-        ) : (
+        ) : currentView === 'analytics' ? (
           <PipelineAnalytics runs={runs} />
+        ) : (
+          <PipelineHealth runs={runs} pipelines={pipelineConfigs} />
         )}
       </main>
 
       {/* Logs Modal */}
       {selectedRun && (
         <LogsViewer run={selectedRun} onClose={() => setSelectedRun(null)} />
+      )}
+
+      {/* Pipeline Details Modal */}
+      {selectedPipeline && (
+        <PipelineDetails 
+          pipeline={pipelineConfigs.find(p => p.name === selectedPipeline)!}
+          runs={runs.filter(r => r.pipeline === selectedPipeline)}
+          onClose={() => setSelectedPipeline(null)}
+          onTrigger={() => {
+            const p = pipelineConfigs.find(p => p.name === selectedPipeline)
+            if (p) handleTrigger(p.name.replace('_', '-'), p.displayName)
+          }}
+        />
       )}
 
       {/* Scheduler Modal */}
@@ -394,10 +530,18 @@ function App() {
         />
       )}
 
+      {/* Templates Modal */}
+      {showTemplates && (
+        <PipelineTemplates 
+          onApply={handleApplyTemplate}
+          onClose={() => setShowTemplates(false)}
+        />
+      )}
+
       {/* Footer */}
       <footer className="mt-12 py-6 border-t border-white/10">
         <div className="max-w-[1600px] mx-auto px-6 text-center text-[var(--color-dim)] font-mono text-sm">
-          <p>PIPEFLOW v2.1 — ETL ORCHESTRATION SYSTEM</p>
+          <p>PIPEFLOW v2.2 — ETL ORCHESTRATION SYSTEM</p>
         </div>
       </footer>
     </div>
