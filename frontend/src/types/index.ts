@@ -52,3 +52,12 @@ export interface PipelineConfig {
   description: string;
   icon: string;
 }
+
+export interface Notification {
+  id: number;
+  pipeline_run_id: number;
+  message: string;
+  type: string;
+  created_at: string;
+  read: boolean;
+}

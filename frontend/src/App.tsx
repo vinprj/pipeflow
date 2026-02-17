@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import PipelineCard from './components/PipelineCard'
 import PipelineList from './components/PipelineList'
 import StatsCard from './components/StatsCard'
 import Scheduler from './components/Scheduler'
 import LogsViewer from './components/LogsViewer'
 import ToastContainer from './components/ToastContainer'
-import type { PipelineRun, Stats, Toast, PipelineConfig } from './types'
+import NotificationPanel from './components/NotificationPanel'
+import type { PipelineRun, Stats, Toast, PipelineConfig, Notification } from './types'
 
 const PIPELINE_CONFIGS: PipelineConfig[] = [
   {
@@ -40,13 +41,40 @@ const PIPELINE_CONFIGS: PipelineConfig[] = [
   }
 ]
 
+// Local storage for pipeline configs
+const STORAGE_KEY = 'pipeflow_configs'
+
 function App() {
   const [runs, setRuns] = useState<PipelineRun[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedRun, setSelectedRun] = useState<PipelineRun | null>(null)
   const [showScheduler, setShowScheduler] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [showConfig, setShowConfig] = useState(false)
   const [toasts, setToasts] = useState<Toast[]>([])
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('connecting')
+  const [pipelineConfigs, setPipelineConfigs] = useState<PipelineConfig[]>(PIPELINE_CONFIGS)
+
+  // Load configs from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      try {
+        setPipelineConfigs(JSON.parse(saved))
+      } catch (e) {
+        console.error('Failed to load configs:', e)
+      }
+    }
+  }, [])
+
+  // Save configs to localStorage
+  const savePipelineConfigs = useCallback((configs: PipelineConfig[]) => {
+    setPipelineConfigs(configs)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(configs))
+  }, [])
 
   const addToast = (type: Toast['type'], message: string) => {
     const toast: Toast = {
@@ -64,17 +92,29 @@ function App() {
 
   const fetchData = async () => {
     try {
-      const [runsRes, statsRes] = await Promise.all([
+      const [runsRes, statsRes, notifRes] = await Promise.all([
         fetch('/api/pipelines'),
-        fetch('/api/stats')
+        fetch('/api/stats'),
+        fetch('/api/notifications')
       ])
-      const runsData = await runsRes.json()
-      const statsData = await statsRes.json()
-      setRuns(runsData)
-      setStats(statsData)
+      
+      if (runsRes.ok && statsRes.ok && notifRes.ok) {
+        setConnectionStatus('connected')
+        const runsData = await runsRes.json()
+        const statsData = await statsRes.json()
+        const notifData = await notifRes.json()
+        
+        setRuns(runsData)
+        setStats(statsData)
+        setNotifications(notifData)
+        setUnreadCount(notifData.filter((n: Notification) => !n.read).length)
+      } else {
+        setConnectionStatus('disconnected')
+      }
     } catch (error) {
       console.error('Error fetching data:', error)
-      addToast('error', 'Failed to fetch pipeline data')
+      setConnectionStatus('disconnected')
+      addToast('error', 'Failed to connect to server')
     } finally {
       setLoading(false)
     }
@@ -106,6 +146,34 @@ function App() {
     }
   }
 
+  const handleMarkRead = async (id: number) => {
+    try {
+      await fetch(`/api/notifications/${id}/read`, { method: 'PATCH' })
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+      setUnreadCount(prev => Math.max(0, prev - 1))
+    } catch (error) {
+      console.error('Error marking notification read:', error)
+    }
+  }
+
+  const handleMarkAllRead = async () => {
+    try {
+      await fetch('/api/notifications/mark-all-read', { method: 'PATCH' })
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+      setUnreadCount(0)
+    } catch (error) {
+      console.error('Error marking all notifications read:', error)
+    }
+  }
+
+  const updatePipelineConfig = (name: string, updates: Partial<PipelineConfig>) => {
+    const updated = pipelineConfigs.map(p => 
+      p.name === name ? { ...p, ...updates } : p
+    )
+    savePipelineConfigs(updated)
+    addToast('success', 'Pipeline configuration updated')
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -129,25 +197,78 @@ function App() {
 
       {/* Header */}
       <header className="glass-card border-b-2 border-[var(--color-spark)]/30 sticky top-0 z-40 backdrop-blur-lg">
-        <div className="max-w-[1600px] mx-auto px-6 py-6">
+        <div className="max-w-[1600px] mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-4xl font-bold font-mono text-[var(--color-spark)] glitch-text mb-1">
-                PIPEFLOW
-              </h1>
-              <p className="text-[var(--color-dim)] font-mono text-sm">
-                ETL PIPELINE ORCHESTRATION SYSTEM
-              </p>
+            <div className="flex items-center gap-6">
+              <div>
+                <h1 className="text-3xl font-bold font-mono text-[var(--color-spark)] glitch-text mb-0">
+                  PIPEFLOW
+                </h1>
+                <p className="text-[var(--color-dim)] font-mono text-xs">
+                  ETL PIPELINE ORCHESTRATION
+                </p>
+              </div>
+              
+              {/* Connection Status */}
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${
+                  connectionStatus === 'connected' ? 'bg-green-500 animate-pulse' :
+                  connectionStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' :
+                  'bg-red-500'
+                }`}></div>
+                <span className="text-xs font-mono text-[var(--color-dim)] uppercase">
+                  {connectionStatus}
+                </span>
+              </div>
             </div>
-            <button
-              onClick={() => setShowScheduler(true)}
-              className="bg-[var(--color-spark)] hover:bg-[var(--color-spark)]/80 text-black font-bold py-3 px-6 rounded font-mono transition-all btn-primary"
-            >
-              ⏱ SCHEDULER
-            </button>
+            
+            <div className="flex items-center gap-3">
+              {/* Config Button */}
+              <button
+                onClick={() => setShowConfig(true)}
+                className="bg-[var(--color-steel)] hover:bg-[var(--color-concrete)] border border-white/10 text-white font-mono py-2 px-4 rounded transition-all hover:border-[var(--color-spark)]/50"
+                title="Configure Pipelines"
+              >
+                ⚙️
+              </button>
+              
+              {/* Notifications Bell */}
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative bg-[var(--color-steel)] hover:bg-[var(--color-concrete)] border border-white/10 text-white font-mono py-2 px-4 rounded transition-all hover:border-[var(--color-spark)]/50"
+              >
+                🔔
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-bounce">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+              
+              {/* Scheduler Button */}
+              <button
+                onClick={() => setShowScheduler(true)}
+                className="bg-[var(--color-spark)] hover:bg-[var(--color-spark)]/80 text-black font-bold py-2 px-5 rounded font-mono transition-all btn-primary"
+              >
+                ⏱ SCHEDULER
+              </button>
+            </div>
           </div>
         </div>
       </header>
+
+      {/* Notifications Dropdown */}
+      {showNotifications && (
+        <div className="absolute right-6 top-24 z-50 w-96">
+          <div className="glass-card rounded-lg border border-[var(--color-spark)]/30 shadow-2xl">
+            <NotificationPanel 
+              notifications={notifications}
+              onMarkRead={handleMarkRead}
+              onMarkAllRead={handleMarkAllRead}
+            />
+          </div>
+        </div>
+      )}
 
       <main className="max-w-[1600px] mx-auto px-6 py-8 relative z-10">
         {/* Stats */}
@@ -189,7 +310,7 @@ function App() {
 
         {/* Pipeline Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-          {PIPELINE_CONFIGS.map((pipeline) => (
+          {pipelineConfigs.map((pipeline) => (
             <PipelineCard
               key={pipeline.name}
               name={pipeline.name}
@@ -227,17 +348,143 @@ function App() {
       {/* Scheduler Modal */}
       {showScheduler && (
         <Scheduler 
-          pipelines={PIPELINE_CONFIGS} 
+          pipelines={pipelineConfigs} 
           onClose={() => setShowScheduler(false)} 
+        />
+      )}
+
+      {/* Pipeline Config Modal */}
+      {showConfig && (
+        <PipelineConfigModal 
+          pipelines={pipelineConfigs}
+          onUpdate={updatePipelineConfig}
+          onClose={() => setShowConfig(false)}
         />
       )}
 
       {/* Footer */}
       <footer className="mt-12 py-6 border-t border-white/10">
         <div className="max-w-[1600px] mx-auto px-6 text-center text-[var(--color-dim)] font-mono text-sm">
-          <p>PIPEFLOW v2.0 — ETL ORCHESTRATION SYSTEM</p>
+          <p>PIPEFLOW v2.1 — ETL ORCHESTRATION SYSTEM</p>
         </div>
       </footer>
+    </div>
+  )
+}
+
+// Pipeline Configuration Modal Component
+function PipelineConfigModal({ 
+  pipelines, 
+  onUpdate, 
+  onClose 
+}: { 
+  pipelines: PipelineConfig[]
+  onUpdate: (name: string, updates: Partial<PipelineConfig>) => void
+  onClose: () => void
+}) {
+  const [selected, setSelected] = useState(pipelines[0]?.name || '')
+
+  const selectedPipeline = pipelines.find(p => p.name === selected)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+      ></div>
+      
+      {/* Modal */}
+      <div className="relative glass-card border border-[var(--color-spark)]/30 w-full max-w-2xl max-h-[80vh] overflow-hidden rounded-xl shadow-2xl">
+        {/* Header */}
+        <div className="flex justify-between items-center p-6 border-b border-white/10">
+          <h2 className="text-xl font-bold font-mono text-white">
+            ⚙️ PIPELINE CONFIGURATION
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-[var(--color-dim)] hover:text-white transition-colors text-2xl"
+          >
+            ×
+          </button>
+        </div>
+        
+        {/* Content */}
+        <div className="p-6 overflow-y-auto max-h-[60vh]">
+          {/* Pipeline Selector */}
+          <div className="mb-6">
+            <label className="block text-sm font-mono text-[var(--color-dim)] mb-2">
+              SELECT PIPELINE
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {pipelines.map(p => (
+                <button
+                  key={p.name}
+                  onClick={() => setSelected(p.name)}
+                  className={`p-3 rounded border font-mono text-sm transition-all ${
+                    selected === p.name
+                      ? 'bg-[var(--color-spark)]/20 border-[var(--color-spark)] text-[var(--color-spark)]'
+                      : 'bg-[var(--color-steel)] border-white/10 text-[var(--color-dim)] hover:border-white/30'
+                  }`}
+                >
+                  {p.icon} {p.displayName}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          {/* Config Form */}
+          {selectedPipeline && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-mono text-[var(--color-dim)] mb-2">
+                  DISPLAY NAME
+                </label>
+                <input
+                  type="text"
+                  value={selectedPipeline.displayName}
+                  onChange={(e) => onUpdate(selectedPipeline.name, { displayName: e.target.value })}
+                  className="w-full bg-[var(--color-void)] border border-white/20 rounded p-3 text-white font-mono focus:border-[var(--color-spark)] focus:outline-none"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-mono text-[var(--color-dim)] mb-2">
+                  DESCRIPTION
+                </label>
+                <textarea
+                  value={selectedPipeline.description}
+                  onChange={(e) => onUpdate(selectedPipeline.name, { description: e.target.value })}
+                  rows={3}
+                  className="w-full bg-[var(--color-void)] border border-white/20 rounded p-3 text-white font-mono focus:border-[var(--color-spark)] focus:outline-none resize-none"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-mono text-[var(--color-dim)] mb-2">
+                  ICON (EMOJI)
+                </label>
+                <input
+                  type="text"
+                  value={selectedPipeline.icon}
+                  onChange={(e) => onUpdate(selectedPipeline.name, { icon: e.target.value })}
+                  className="w-20 bg-[var(--color-void)] border border-white/20 rounded p-3 text-2xl text-center focus:border-[var(--color-spark)] focus:outline-none"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Footer */}
+        <div className="p-4 border-t border-white/10 flex justify-end">
+          <button
+            onClick={onClose}
+            className="bg-[var(--color-spark)] hover:bg-[var(--color-spark)]/80 text-black font-bold py-2 px-6 rounded font-mono transition-all"
+          >
+            DONE
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
