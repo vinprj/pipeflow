@@ -15,6 +15,8 @@ from pipelines.csv_pipeline import run_csv_ingestion_pipeline
 from pipelines.api_pipeline import run_api_fetch_pipeline
 from pipelines.aggregation_pipeline import run_aggregation_pipeline
 from pipelines.json_pipeline import run_json_ingestion_pipeline
+from pipelines.xml_pipeline import run_xml_parser_pipeline
+from pipelines.json_pipeline import run_json_ingestion_pipeline
 from pipelines.webscraping_pipeline import run_webscraping_pipeline
 from scheduler import start_scheduler, stop_scheduler, reload_schedules
 
@@ -146,6 +148,17 @@ def trigger_webscraping_pipeline(db: Session = Depends(get_db)):
     return PipelineTriggerResponse(
         status=result["status"],
         message=f"Scraped {result.get('records_processed', 0)} records",
+        run_id=result["run_id"]
+    )
+
+@app.post("/api/pipelines/xml-parser/trigger", response_model=PipelineTriggerResponse)
+def trigger_xml_pipeline(db: Session = Depends(get_db)):
+    """Trigger XML parser pipeline"""
+    result = run_xml_parser_pipeline(db)
+    create_notification(db, result["run_id"], result["status"])
+    return PipelineTriggerResponse(
+        status=result["status"],
+        message=f"Parsed {result.get('records_processed', 0)} XML records",
         run_id=result["run_id"]
     )
 
