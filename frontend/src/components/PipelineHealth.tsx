@@ -8,9 +8,9 @@ interface Props {
 export default function PipelineHealth({ runs, pipelines }: Props) {
   // Calculate health metrics for each pipeline
   const pipelineHealth = pipelines.map(pipeline => {
-    const pipelineRuns = runs.filter(r => r.pipeline === pipeline.name)
+    const pipelineRuns = runs.filter(r => (r.pipeline ?? r.pipeline_name) === pipeline.name)
     const totalRuns = pipelineRuns.length
-    const successfulRuns = pipelineRuns.filter(r => r.status === 'completed').length
+    const successfulRuns = pipelineRuns.filter(r => r.status === 'completed' || r.status === 'success').length
     const failedRuns = pipelineRuns.filter(r => r.status === 'failed').length
     const runningRuns = pipelineRuns.filter(r => r.status === 'running').length
     
@@ -33,7 +33,7 @@ export default function PipelineHealth({ runs, pipelines }: Props) {
     // Calculate average duration
     const completedRuns = pipelineRuns.filter(r => r.completed_at)
     const avgDuration = completedRuns.length > 0
-      ? completedRuns.reduce((sum, r) => sum + (r.completed_at! - r.started_at), 0) / completedRuns.length / 1000
+      ? completedRuns.reduce((sum, r) => sum + (new Date(r.completed_at!).getTime() - new Date(r.started_at).getTime()), 0) / completedRuns.length / 1000
       : 0
     
     // Check if healthy (no failures in last 5 runs)
@@ -160,7 +160,7 @@ export default function PipelineHealth({ runs, pipelines }: Props) {
                   </div>
                   <div className="flex justify-between text-xs font-mono mt-1">
                     <span className="text-[var(--color-dim)]">STATUS</span>
-                    <span className={pipeline.lastRun.status === 'completed' ? 'text-green-400' : 'text-red-400'}>
+                    <span className={(pipeline.lastRun.status === 'completed' || pipeline.lastRun.status === 'success') ? 'text-green-400' : 'text-red-400'}>
                       {pipeline.lastRun.status.toUpperCase()}
                     </span>
                   </div>

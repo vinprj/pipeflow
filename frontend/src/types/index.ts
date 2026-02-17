@@ -1,7 +1,8 @@
 export interface PipelineRun {
   id: number;
   pipeline_name: string;
-  status: 'running' | 'success' | 'failed';
+  pipeline?: string;
+  status: 'running' | 'success' | 'failed' | 'completed';
   started_at: string;
   completed_at: string | null;
   records_processed: number;
@@ -35,6 +36,7 @@ export interface Schedule {
   cron_expression: string;
   enabled: boolean;
   last_run: string | null;
+  last_run_at?: string | null;
   next_run: string | null;
   created_at: string;
 }

@@ -6,10 +6,15 @@ interface Props {
 }
 
 function PipelineList({ runs, onSelect }: Props) {
-  const statusConfig = {
+  const statusConfig: Record<string, { color: string; label: string; icon: string }> = {
     success: {
       color: 'text-green-400 bg-green-500/10 border-green-500/30',
       label: 'SUCCESS',
+      icon: '✓'
+    },
+    completed: {
+      color: 'text-green-400 bg-green-500/10 border-green-500/30',
+      label: 'COMPLETED',
       icon: '✓'
     },
     failed: {

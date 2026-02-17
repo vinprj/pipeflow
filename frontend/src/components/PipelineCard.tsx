@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import type { PipelineRun } from '../types';
 
 interface Props {
   name: string
@@ -15,7 +14,7 @@ interface Props {
   }
 }
 
-function PipelineCard({ name, displayName, description, icon, onTrigger, lastRun }: Props) {
+function PipelineCard({ name: _name, displayName, description, icon, onTrigger, lastRun }: Props) {
   const [isHovered, setIsHovered] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
 

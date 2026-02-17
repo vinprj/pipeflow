@@ -37,8 +37,9 @@ function LogsViewer({ run, onClose }: Props) {
     return 'text-gray-300'
   }
 
-  const statusColors = {
+  const statusColors: Record<string, string> = {
     success: 'text-green-400',
+    completed: 'text-green-400',
     failed: 'text-red-400',
     running: 'text-blue-400'
   }

@@ -21,18 +21,18 @@ export default function PipelineAnalytics({ runs }: Props) {
   );
 
   // Calculate stats
-  const successCount = filteredRuns.filter(r => r.status === 'completed').length;
+  const successCount = filteredRuns.filter(r => r.status === 'completed' || r.status === 'success').length;
   const failedCount = filteredRuns.filter(r => r.status === 'failed').length;
   const totalCount = filteredRuns.length;
   const successRate = totalCount > 0 ? Math.round((successCount / totalCount) * 100) : 0;
 
   // Get unique pipelines
-  const pipelines = [...new Set(filteredRuns.map(r => r.pipeline))];
+  const pipelines = [...new Set(filteredRuns.map(r => r.pipeline ?? r.pipeline_name))];
   
   // Calculate avg duration
   const completedRuns = filteredRuns.filter(r => r.completed_at && r.started_at);
   const avgDuration = completedRuns.length > 0 
-    ? Math.round(completedRuns.reduce((sum, r) => sum + (r.completed_at! - r.started_at), 0) / completedRuns.length / 1000)
+    ? Math.round(completedRuns.reduce((sum, r) => sum + (new Date(r.completed_at!).getTime() - new Date(r.started_at).getTime()), 0) / completedRuns.length / 1000)
     : 0;
 
   // Group by hour/day for chart
@@ -50,7 +50,7 @@ export default function PipelineAnalytics({ runs }: Props) {
       }
       
       if (!data[key]) data[key] = { success: 0, failed: 0 };
-      if (run.status === 'completed') data[key].success++;
+      if (run.status === 'completed' || run.status === 'success') data[key].success++;
       else if (run.status === 'failed') data[key].failed++;
     });
     
@@ -125,9 +125,9 @@ export default function PipelineAnalytics({ runs }: Props) {
         <h3 className="font-mono text-white mb-4">PIPELINE BREAKDOWN</h3>
         <div className="space-y-3">
           {pipelines.map(pipeline => {
-            const pipelineRuns = filteredRuns.filter(r => r.pipeline === pipeline);
-            const success = pipelineRuns.filter(r => r.status === 'completed').length;
-            const failed = pipelineRuns.filter(r => r.status === 'failed').length;
+            const pipelineRuns = filteredRuns.filter(r => (r.pipeline ?? r.pipeline_name) === pipeline);
+            const success = pipelineRuns.filter(r => r.status === 'completed' || r.status === 'success').length;
+            // failed count not displayed but could be added
             const rate = pipelineRuns.length > 0 ? Math.round((success / pipelineRuns.length) * 100) : 0;
             
             return (

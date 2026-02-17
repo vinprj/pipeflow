@@ -11,12 +11,12 @@ interface Props {
 export default function PipelineDetails({ pipeline, runs, onClose, onTrigger }: Props) {
   const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'config'>('overview')
   
-  const pipelineRuns = runs.filter(r => r.pipeline === pipeline.name)
-  const successCount = pipelineRuns.filter(r => r.status === 'completed').length
+  const pipelineRuns = runs.filter(r => (r.pipeline ?? r.pipeline_name) === pipeline.name)
+  const successCount = pipelineRuns.filter(r => r.status === 'completed' || r.status === 'success').length
   const failedCount = pipelineRuns.filter(r => r.status === 'failed').length
   const avgDuration = pipelineRuns.length > 0
     ? Math.round(pipelineRuns.reduce((sum, r) => {
-        if (r.completed_at) return sum + (r.completed_at - r.started_at)
+        if (r.completed_at) return sum + (new Date(r.completed_at).getTime() - new Date(r.started_at).getTime())
         return sum
       }, 0) / pipelineRuns.length / 1000)
     : 0
@@ -121,7 +121,7 @@ export default function PipelineDetails({ pipeline, runs, onClose, onTrigger }: 
                       >
                         <div className="flex items-center gap-3">
                           <span className={`w-2 h-2 rounded-full ${
-                            run.status === 'completed' ? 'bg-green-500' :
+                            (run.status === 'completed' || run.status === 'success') ? 'bg-green-500' :
                             run.status === 'failed' ? 'bg-red-500' :
                             'bg-blue-500 animate-pulse'
                           }`} />
@@ -134,7 +134,7 @@ export default function PipelineDetails({ pipeline, runs, onClose, onTrigger }: 
                             {run.records_processed} records
                           </span>
                           <span className={`font-mono text-xs ${
-                            run.status === 'completed' ? 'text-green-400' :
+                            (run.status === 'completed' || run.status === 'success') ? 'text-green-400' :
                             run.status === 'failed' ? 'text-red-400' :
                             'text-blue-400'
                           }`}>
@@ -160,7 +160,7 @@ export default function PipelineDetails({ pipeline, runs, onClose, onTrigger }: 
                 <div className="space-y-2">
                   {pipelineRuns.map(run => {
                     const duration = run.completed_at 
-                      ? Math.round((run.completed_at - run.started_at) / 1000)
+                      ? Math.round((new Date(run.completed_at).getTime() - new Date(run.started_at).getTime()) / 1000)
                       : null
                     
                     return (
@@ -171,7 +171,7 @@ export default function PipelineDetails({ pipeline, runs, onClose, onTrigger }: 
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4">
                             <span className={`px-3 py-1 rounded-full text-xs font-mono ${
-                              run.status === 'completed' 
+                              (run.status === 'completed' || run.status === 'success')
                                 ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
                                 : run.status === 'failed'
                                 ? 'bg-red-500/20 text-red-400 border border-red-500/30'

@@ -141,7 +141,7 @@ function App() {
       const response = await fetch(`/api/pipelines/${pipeline}/trigger`, {
         method: 'POST'
       })
-      const result = await response.json()
+      await response.json()
       
       if (response.ok) {
         addToast('success', `${displayName} started successfully!`)
@@ -453,7 +453,6 @@ function App() {
                       pipeline.name.replace('_', '-'),
                       pipeline.displayName
                     )}
-                    onViewDetails={() => setSelectedPipeline(pipeline.name)}
                     lastRun={stats?.latest_runs?.[pipeline.name]}
                   />
                 </div>
@@ -504,7 +503,7 @@ function App() {
       {selectedPipeline && (
         <PipelineDetails 
           pipeline={pipelineConfigs.find(p => p.name === selectedPipeline)!}
-          runs={runs.filter(r => r.pipeline === selectedPipeline)}
+          runs={runs.filter(r => (r.pipeline ?? r.pipeline_name) === selectedPipeline)}
           onClose={() => setSelectedPipeline(null)}
           onTrigger={() => {
             const p = pipelineConfigs.find(p => p.name === selectedPipeline)

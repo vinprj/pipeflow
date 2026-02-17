@@ -4,8 +4,8 @@ import type { Schedule } from '../types'
 interface ScheduleManagerProps {
   schedules: Schedule[]
   onCreateSchedule: (pipelineName: string, cronExpression: string) => void
-  onToggleSchedule: (scheduleId: number) => void
-  onDeleteSchedule: (scheduleId: number) => void
+  onToggleSchedule: (scheduleId: string) => void
+  onDeleteSchedule: (scheduleId: string) => void
 }
 
 const ScheduleManager = ({ schedules, onCreateSchedule, onToggleSchedule, onDeleteSchedule }: ScheduleManagerProps) => {
