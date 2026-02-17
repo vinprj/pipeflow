@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import PipelineCard from './components/PipelineCard'
 import PipelineList from './components/PipelineList'
+import PipelineAnalytics from './components/PipelineAnalytics'
 import StatsCard from './components/StatsCard'
 import Scheduler from './components/Scheduler'
 import LogsViewer from './components/LogsViewer'
@@ -52,6 +53,7 @@ function App() {
   const [showScheduler, setShowScheduler] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [showConfig, setShowConfig] = useState(false)
+  const [currentView, setCurrentView] = useState<'pipelines' | 'analytics'>('pipelines')
   const [toasts, setToasts] = useState<Toast[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -253,6 +255,30 @@ function App() {
                 ⏱ SCHEDULER
               </button>
             </div>
+            
+            {/* View Toggle */}
+            <div className="flex items-center gap-2 mt-4">
+              <button
+                onClick={() => setCurrentView('pipelines')}
+                className={`flex-1 py-2 px-4 rounded font-mono text-sm transition-all ${
+                  currentView === 'pipelines'
+                    ? 'bg-[var(--color-spark)] text-black'
+                    : 'bg-[var(--color-steel)] text-[var(--color-dim)] hover:text-white'
+                }`}
+              >
+                📦 PIPELINES
+              </button>
+              <button
+                onClick={() => setCurrentView('analytics')}
+                className={`flex-1 py-2 px-4 rounded font-mono text-sm transition-all ${
+                  currentView === 'analytics'
+                    ? 'bg-[var(--color-spark)] text-black'
+                    : 'bg-[var(--color-steel)] text-[var(--color-dim)] hover:text-white'
+                }`}
+              >
+                📊 ANALYTICS
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -300,44 +326,50 @@ function App() {
           </div>
         )}
 
-        {/* Section Header */}
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold font-mono text-white mb-2">
-            AVAILABLE PIPELINES
-          </h2>
-          <div className="h-1 w-32 bg-gradient-to-r from-[var(--color-spark)] to-transparent"></div>
-        </div>
+        {currentView === 'pipelines' ? (
+          <>
+            {/* Section Header */}
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold font-mono text-white mb-2">
+                AVAILABLE PIPELINES
+              </h2>
+              <div className="h-1 w-32 bg-gradient-to-r from-[var(--color-spark)] to-transparent"></div>
+            </div>
 
-        {/* Pipeline Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-          {pipelineConfigs.map((pipeline) => (
-            <PipelineCard
-              key={pipeline.name}
-              name={pipeline.name}
-              displayName={pipeline.displayName}
-              description={pipeline.description}
-              icon={pipeline.icon}
-              onTrigger={() => handleTrigger(
-                pipeline.name.replace('_', '-'),
-                pipeline.displayName
-              )}
-              lastRun={stats?.latest_runs?.[pipeline.name]}
-            />
-          ))}
-        </div>
+            {/* Pipeline Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+              {pipelineConfigs.map((pipeline) => (
+                <PipelineCard
+                  key={pipeline.name}
+                  name={pipeline.name}
+                  displayName={pipeline.displayName}
+                  description={pipeline.description}
+                  icon={pipeline.icon}
+                  onTrigger={() => handleTrigger(
+                    pipeline.name.replace('_', '-'),
+                    pipeline.displayName
+                  )}
+                  lastRun={stats?.latest_runs?.[pipeline.name]}
+                />
+              ))}
+            </div>
 
-        {/* Section Header */}
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold font-mono text-white mb-2">
-            RECENT PIPELINE RUNS
-          </h2>
-          <div className="h-1 w-32 bg-gradient-to-r from-[var(--color-spark)] to-transparent"></div>
-        </div>
+            {/* Section Header */}
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold font-mono text-white mb-2">
+                RECENT PIPELINE RUNS
+              </h2>
+              <div className="h-1 w-32 bg-gradient-to-r from-[var(--color-spark)] to-transparent"></div>
+            </div>
 
-        {/* Pipeline Runs List */}
-        <div className="glass-card rounded-lg overflow-hidden border border-white/10">
-          <PipelineList runs={runs} onSelect={setSelectedRun} />
-        </div>
+            {/* Pipeline Runs List */}
+            <div className="glass-card rounded-lg overflow-hidden border border-white/10">
+              <PipelineList runs={runs} onSelect={setSelectedRun} />
+            </div>
+          </>
+        ) : (
+          <PipelineAnalytics runs={runs} />
+        )}
       </main>
 
       {/* Logs Modal */}

@@ -63,8 +63,34 @@ body::before {
   }
 }
 
+@keyframes pulse-glow-green {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(52, 199, 89, 0.5), 0 0 10px rgba(52, 199, 89, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 10px rgba(52, 199, 89, 0.8), 0 0 20px rgba(52, 199, 89, 0.5);
+  }
+}
+
+@keyframes pulse-glow-red {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(255, 59, 48, 0.5), 0 0 10px rgba(255, 59, 48, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 10px rgba(255, 59, 48, 0.8), 0 0 20px rgba(255, 59, 48, 0.5);
+  }
+}
+
 .status-running {
   animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.status-success {
+  animation: pulse-glow-green 2s ease-in-out infinite;
+}
+
+.status-failed {
+  animation: pulse-glow-red 2s ease-in-out infinite;
 }
 
 /* Slide in from right */
@@ -79,8 +105,23 @@ body::before {
   }
 }
 
+@keyframes slideInUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 .toast-notification {
   animation: slideInRight 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* Glitch text effect */
@@ -149,6 +190,30 @@ body::before {
   left: 100%;
 }
 
+/* Pipeline card hover */
+.pipeline-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pipeline-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--color-spark);
+  box-shadow: 0 0 30px rgba(0, 217, 255, 0.2);
+}
+
+/* Stagger animation for cards */
+.stagger-grid > * {
+  opacity: 0;
+  animation: slideInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.stagger-grid > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-grid > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-grid > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-grid > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-grid > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-grid > *:nth-child(6) { animation-delay: 250ms; }
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;
@@ -166,4 +231,16 @@ body::before {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-spark);
+}
+
+/* Loading shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, transparent 25%, rgba(0, 217, 255, 0.1) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
 }
